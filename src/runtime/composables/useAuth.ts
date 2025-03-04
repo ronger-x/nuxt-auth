@@ -20,7 +20,7 @@ export function useAuth() {
     }
 
     try {
-      const response = await nuxtApp.$auth.fetch(signInEndpoint.path, {
+      const response = await $fetch<Record<string, any>>(signInEndpoint.path, {
         method: signInEndpoint.method || 'post',
         body: credentials
       })
@@ -88,12 +88,10 @@ export function useAuth() {
     }
 
     try {
-      const response = await $fetch(signUpEndpoint.path, {
+      return await $fetch(signUpEndpoint.path, {
         method: signUpEndpoint.method || 'post',
         body: userData
       })
-
-      return response
     }
     catch (error) {
       console.error('Register error:', error)

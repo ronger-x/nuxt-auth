@@ -17,80 +17,58 @@ export function useAuthSession() {
   const nuxtApp = useNuxtApp()
 
   // 首先定义 refreshAccessToken 函数
-  const refreshAccessToken = async (refreshToken: string): Promise<boolean> => {
-    // 避免多个同时刷新请求
-    if (nuxtApp.$auth._refreshPromise) {
-      return nuxtApp.$auth._refreshPromise
+  async function refreshAccessToken(): Promise<void> {
+    async function handler() {
+      const refreshEndpoint = config.endpoints?.refresh
+      if (!refreshEndpoint || !refreshEndpoint.path) {
+        return
+      }
+      const response = await nuxtApp.$auth.fetch<Record<string, any>>(refreshEndpoint.path, {
+        method: refreshEndpoint.method || 'post',
+        body: {
+          refreshToken: getRefreshToken()
+        }
+      })
+
+      // 从响应中提取令牌
+      const extractedToken = jsonPointerGet(response, config.accessToken.responseTokenPointer)
+      if (typeof extractedToken !== 'string') {
+        console.error(
+          `Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. `
+          + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        )
+        return
+      }
+      setToken(extractedToken)
+
+      const newRefreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
+      if (typeof newRefreshTokenValue !== 'string') {
+        console.error(
+          `Auth: string token expected, received instead: ${JSON.stringify(newRefreshTokenValue)}. `
+          + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        )
+        return
+      }
+
+      // 存储新令牌
+      if (newRefreshTokenValue) {
+        setRefreshToken(newRefreshTokenValue)
+      }
+
+      // 更新会话
+      authState.value.lastRefreshedAt = Date.now()
     }
 
-    const refreshPromise = new Promise<boolean>((resolve) => {
-      try {
-        const refreshEndpoint = config.endpoints?.refresh
-        if (!refreshEndpoint || !refreshEndpoint.path) {
-          resolve(false)
-          return
-        }
-
-        // 创建包含刷新令牌的载荷
-        const payload: Record<string, any> = {}
-        const tokenPointer = config.refreshToken.refreshRequestTokenPointer || '/refreshToken'
-        const segments = tokenPointer.split('/').filter(Boolean)
-
-        let current = payload
-        for (let i = 0; i < segments.length - 1; i++) {
-          current[segments[i]] = {}
-          current = current[segments[i]]
-        }
-        current[segments[segments.length - 1]] = refreshToken
-
-        // 调用刷新端点
-        const response = await nuxtApp.$auth.fetch(refreshEndpoint.path, {
-          method: refreshEndpoint.method || 'post',
-          body: payload
-        })
-
-        // 从响应中提取令牌
-        const extractedToken = jsonPointerGet(response, config.accessToken.responseTokenPointer)
-        if (typeof extractedToken !== 'string') {
-          console.error(
-            `Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. `
-            + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
-          )
-          return
-        }
-        setToken(extractedToken)
-
-        const newRefreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
-        if (typeof newRefreshTokenValue !== 'string') {
-          console.error(
-            `Auth: string token expected, received instead: ${JSON.stringify(newRefreshTokenValue)}. `
-            + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
-          )
-          return
-        }
-
-        // 存储新令牌
-        if (newRefreshTokenValue) {
-          setRefreshToken(newRefreshTokenValue)
-        }
-
-        // 更新会话
-        authState.value.lastRefreshedAt = Date.now()
-
-        resolve(true)
-      }
-      catch (error) {
-        console.error('Error refreshing token:', error)
-        clearSession()
-        resolve(false)
-      }
-      finally {
-        nuxtApp.$auth._refreshPromise = null
-      }
+    nuxtApp.$auth._refreshPromise ||= handler()
+    await nuxtApp.$auth._refreshPromise.finally(() => {
+      nuxtApp.$auth._refreshPromise = null
     })
+  }
 
-    nuxtApp.$auth._refreshPromise = refreshPromise
-    return refreshPromise
+  // 设置会话数据
+  const setSession = (user: User | null) => {
+    authState.value.user = user
+    authState.value.loggedIn = !!user
   }
 
   // 预先声明 clearSession 以避免循环引用问题
@@ -116,8 +94,8 @@ export function useAuthSession() {
 
         // 尝试刷新令牌
         try {
-          const result = await refreshAccessToken(refreshToken)
-          return result ? getToken() : null
+          await refreshAccessToken()
+          return getToken()
         }
         catch (error) {
           console.error('Failed to refresh token:', error)
@@ -130,14 +108,6 @@ export function useAuthSession() {
     else {
       return null
     }
-
-    // 检查令牌是否过期，应该尝试刷新
-  }
-
-  // 设置会话数据
-  const setSession = (user: User | null) => {
-    authState.value.user = user
-    authState.value.loggedIn = !!user
   }
 
   // 获取当前用户数据
