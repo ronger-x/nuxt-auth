@@ -7,8 +7,9 @@ export default defineNuxtModule<ModuleOptions>({
   meta: {
     name,
     version,
+    configKey: 'auth',
     compatibility: {
-      nuxt: '^3.0.0'
+      nuxt: '>=3.8.2',
     }
   },
   defaults: {

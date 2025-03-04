@@ -1,5 +1,5 @@
 {
-  "name": "nuxt-auth",
+  "name": "@rymcu/nuxt-auth",
   "version": "1.0.0",
   "description": "Nuxt Auth Module",
   "author": "ronger",

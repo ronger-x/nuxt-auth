@@ -43,10 +43,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
           if (refreshToken) {
             try {
               // Try refreshing the token
-              const success = await authSession.refreshAccessToken(refreshToken)
-              if (!success) {
-                authSession.clearSession()
-              }
+              await authSession.refreshAccessToken()
             }
             catch (error) {
               console.error('Failed to refresh token on 401 response', error)
