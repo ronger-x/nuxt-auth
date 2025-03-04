@@ -1,5 +1,6 @@
 import type { PublicConfig, User } from '../types'
 import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
+import { jsonPointerGet } from '../utils/json'
 import { useAuthSession } from './useAuthSession'
 import { useAuthToken } from './useAuthToken'
 import { useRefreshToken } from './useRefreshToken'
@@ -19,30 +20,30 @@ export function useAuth() {
     }
 
     try {
-      const response = await $fetch(signInEndpoint.path, {
+      const response = await nuxtApp.$auth.fetch(signInEndpoint.path, {
         method: signInEndpoint.method || 'post',
         body: credentials
       })
 
       // Extract tokens from response
-      const accessTokenPointer = config.accessToken.responseTokenPointer
-      const refreshTokenPointer = config.refreshToken.responseTokenPointer
-
-      const accessTokenSegments = accessTokenPointer.split('/').filter(Boolean)
-      const refreshTokenSegments = refreshTokenPointer.split('/').filter(Boolean)
-
-      let accessTokenValue = response
-      for (const segment of accessTokenSegments) {
-        accessTokenValue = accessTokenValue?.[segment]
+      const extractedToken = jsonPointerGet(response, config.accessToken.responseTokenPointer)
+      if (typeof extractedToken !== 'string') {
+        console.error(
+          `Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. `
+          + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        )
+        return
       }
+      setToken(extractedToken)
 
-      let refreshTokenValue = response
-      for (const segment of refreshTokenSegments) {
-        refreshTokenValue = refreshTokenValue?.[segment]
+      const refreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
+      if (typeof refreshTokenValue !== 'string') {
+        console.error(
+          `Auth: string token expected, received instead: ${JSON.stringify(refreshTokenValue)}. `
+          + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        )
+        return
       }
-
-      // Store tokens
-      setToken(accessTokenValue)
       setRefreshToken(refreshTokenValue)
 
       // Fetch user session

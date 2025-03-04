@@ -1,5 +1,6 @@
 import type { AuthSession, PublicConfig, User } from '../types'
 import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
+import { jsonPointerGet } from '../utils/json'
 import { useAuthToken } from './useAuthToken'
 import { useRefreshToken } from './useRefreshToken'
 
@@ -22,7 +23,7 @@ export function useAuthSession() {
       return nuxtApp.$auth._refreshPromise
     }
 
-    const refreshPromise = new Promise<boolean>(async (resolve) => {
+    const refreshPromise = new Promise<boolean>((resolve) => {
       try {
         const refreshEndpoint = config.endpoints?.refresh
         if (!refreshEndpoint || !refreshEndpoint.path) {
@@ -49,24 +50,26 @@ export function useAuthSession() {
         })
 
         // 从响应中提取令牌
-        const accessTokenPointer = config.accessToken.responseTokenPointer
-        const refreshTokenPointer = config.refreshToken.responseTokenPointer
-
-        const accessTokenSegments = accessTokenPointer.split('/').filter(Boolean)
-        const refreshTokenSegments = refreshTokenPointer.split('/').filter(Boolean)
-
-        let accessTokenValue = response
-        for (const segment of accessTokenSegments) {
-          accessTokenValue = accessTokenValue?.[segment]
+        const extractedToken = jsonPointerGet(response, config.accessToken.responseTokenPointer)
+        if (typeof extractedToken !== 'string') {
+          console.error(
+            `Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. `
+            + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
+          )
+          return
         }
+        setToken(extractedToken)
 
-        let newRefreshTokenValue = response
-        for (const segment of refreshTokenSegments) {
-          newRefreshTokenValue = newRefreshTokenValue?.[segment]
+        const newRefreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
+        if (typeof newRefreshTokenValue !== 'string') {
+          console.error(
+            `Auth: string token expected, received instead: ${JSON.stringify(newRefreshTokenValue)}. `
+            + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
+          )
+          return
         }
 
         // 存储新令牌
-        setToken(accessTokenValue)
         if (newRefreshTokenValue) {
           setRefreshToken(newRefreshTokenValue)
         }
