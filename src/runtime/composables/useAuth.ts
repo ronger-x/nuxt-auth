@@ -1,11 +1,11 @@
-import type { User } from '../types'
+import type { PublicConfig, User } from '../types'
 import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
 import { useAuthSession } from './useAuthSession'
 import { useAuthToken } from './useAuthToken'
 import { useRefreshToken } from './useRefreshToken'
 
 export function useAuth() {
-  const config = useRuntimeConfig().public.auth
+  const config = useRuntimeConfig().public.auth as PublicConfig
   const authSession = useAuthSession()
   const { setToken } = useAuthToken()
   const { setRefreshToken } = useRefreshToken()
@@ -19,7 +19,7 @@ export function useAuth() {
     }
 
     try {
-      const response = await nuxtApp.$auth.fetch(signInEndpoint.path, {
+      const response = await $fetch(signInEndpoint.path, {
         method: signInEndpoint.method || 'post',
         body: credentials
       })
@@ -82,12 +82,12 @@ export function useAuth() {
   // Register a new user
   const register = async (userData: Record<string, any>) => {
     const signUpEndpoint = config.endpoints?.signUp
-    if (!signUpEndpoint || !signUpEndpoint.path || signUpEndpoint === false) {
+    if (!signUpEndpoint || !signUpEndpoint.path) {
       throw new Error('Sign up endpoint not configured')
     }
 
     try {
-      const response = await nuxtApp.$auth.fetch(signUpEndpoint.path, {
+      const response = await $fetch(signUpEndpoint.path, {
         method: signUpEndpoint.method || 'post',
         body: userData
       })

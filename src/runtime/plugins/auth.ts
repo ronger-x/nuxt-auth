@@ -1,5 +1,5 @@
 import type { PublicConfig } from '../types'
-import { defineNuxtPlugin, useRuntimeConfig, useState } from '#imports'
+import { defineNuxtPlugin, useRequestHeaders, useRuntimeConfig } from '#imports'
 import { defu } from 'defu'
 import { createStorage } from 'unstorage'
 import { useAuthSession } from '../composables/useAuthSession'
@@ -16,7 +16,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const authStorage = createStorage()
 
   // Fetch headers
-  const reqHeaders = useState('auth.headers', () => ({}))
+  const reqHeaders = useRequestHeaders(['user-agent'])
 
   // Create a $fetch instance with auto token handling
   const fetch = $fetch.create({
@@ -26,9 +26,8 @@ export default defineNuxtPlugin(async (nuxtApp) => {
       const accessToken = await authSession.getAccessToken()
 
       if (accessToken) {
-        options.headers = defu(options.headers, reqHeaders.value, {
-          [config.accessToken.headerName || 'Authorization']:
-            `${config.accessToken.type || 'Bearer'} ${accessToken}`,
+        options.headers = defu(options.headers, reqHeaders, {
+          authorization: `${config.accessToken.type || 'Bearer '} ${accessToken}`,
         })
       }
 

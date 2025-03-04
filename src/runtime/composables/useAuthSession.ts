@@ -75,11 +75,13 @@ export function useAuthSession() {
         authState.value.lastRefreshedAt = Date.now()
 
         resolve(true)
-      } catch (error) {
+      }
+      catch (error) {
         console.error('Error refreshing token:', error)
         clearSession()
         resolve(false)
-      } finally {
+      }
+      finally {
         nuxtApp.$auth._refreshPromise = null
       }
     })
@@ -100,29 +102,33 @@ export function useAuthSession() {
     const tokenMeta = getTokenMeta()
 
     // 如果没有令牌，无法继续
-    if (!tokenMeta?.token) return null
+    if (tokenMeta?.token) {
+      if (isTokenExpired(tokenMeta)) {
+        const refreshToken = getRefreshToken()
+        if (!refreshToken) {
+          // 没有刷新令牌，清除会话
+          clearSession()
+          return null
+        }
 
-    // 检查令牌是否过期，应该尝试刷新
-    if (isTokenExpired(tokenMeta)) {
-      const refreshToken = getRefreshToken()
-      if (!refreshToken) {
-        // 没有刷新令牌，清除会话
-        clearSession()
-        return null
+        // 尝试刷新令牌
+        try {
+          const result = await refreshAccessToken(refreshToken)
+          return result ? getToken() : null
+        }
+        catch (error) {
+          console.error('Failed to refresh token:', error)
+          clearSession()
+          return null
+        }
       }
-
-      // 尝试刷新令牌
-      try {
-        const result = await refreshAccessToken(refreshToken)
-        return result ? getToken() : null
-      } catch (error) {
-        console.error('Failed to refresh token:', error)
-        clearSession()
-        return null
-      }
+      return tokenMeta.token
+    }
+    else {
+      return null
     }
 
-    return tokenMeta.token
+    // 检查令牌是否过期，应该尝试刷新
   }
 
   // 设置会话数据
@@ -145,7 +151,7 @@ export function useAuthSession() {
         return null
       }
 
-      const userData = await nuxtApp.$auth.fetch(sessionEndpoint.path, {
+      const userData = await nuxtApp.$auth.fetch<User>(sessionEndpoint.path, {
         method: sessionEndpoint.method || 'get'
       })
 
@@ -155,7 +161,8 @@ export function useAuthSession() {
       }
 
       return null
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Error fetching user:', error)
       clearSession()
       return null

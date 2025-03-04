@@ -1,4 +1,3 @@
-import type { CookieOptions } from 'nuxt/app'
 import type { PublicConfig, TokenMeta } from '../types'
 import { useCookie, useRuntimeConfig } from '#imports'
 
@@ -60,18 +59,19 @@ export function useRefreshToken() {
     else {
       // Default to cookie storage
       const tokenCookie = useCookie<string | null>(refreshTokenCookieName, {
+        default: () => null,
         maxAge: refreshTokenMaxAge,
         path: '/',
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
-      } as CookieOptions)
+      })
 
       const metaCookie = useCookie<number | null>(`${refreshTokenCookieName}-expires`, {
         maxAge: refreshTokenMaxAge,
         path: '/',
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
-      } as CookieOptions)
+      })
 
       tokenCookie.value = token
       metaCookie.value = token ? expiresAt : null
