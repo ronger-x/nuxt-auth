@@ -1,4 +1,4 @@
-import type { PublicConfig, User } from '../types'
+import type { PublicConfig } from '../types'
 import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
 import { jsonPointerGet } from '../utils/json'
 import { useAuthSession } from './useAuthSession'
@@ -99,25 +99,32 @@ export function useAuth() {
 
   // Check if user is logged in
   const isLoggedIn = (): boolean => {
-    return !!authSession._loggedInFlag
+    return authSession._loggedInFlag.value
   }
 
   // Get current user
-  const getUser = (): User | null => {
+  const session = (): Record<string, any> | null => {
     return authSession.session.value
   }
 
-  // Refresh user session
-  const refreshUser = async (): Promise<User | null> => {
+  // fetch user session
+  const fetchUser = async (): Promise<Record<string, any> | null> => {
     return authSession.fetchUser()
+  }
+
+  // Set universal token
+  const setUniversalToken = (accessToken: string, refreshToken: string) => {
+    authSession.setToken(accessToken)
+    authSession.setRefreshToken(refreshToken)
   }
 
   return {
     login,
     logout,
     register,
-    getUser,
+    session,
     isLoggedIn,
-    refreshUser,
+    fetchUser,
+    setUniversalToken
   }
 }

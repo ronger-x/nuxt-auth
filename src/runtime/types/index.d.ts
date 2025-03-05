@@ -40,18 +40,22 @@ export interface PublicConfig {
     cookieName?: string
     maxAge?: number
   }
+  session: {
+    responseSessionPointer: string
+  }
 }
 
 export type ModuleOptions = PublicConfig
 
-export interface User {
-  id: string | number
-  [key: string]: any
-}
-
 export interface TokenMeta {
   token: string
   expires: number
+}
+
+export interface ResponseMeta<T> {
+  code: number
+  data: T
+  message: string
 }
 
 export interface AuthTokenResponse {

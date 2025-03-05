@@ -1,4 +1,4 @@
-import type { PublicConfig, User } from '../types'
+import type { PublicConfig } from '../types'
 import { useNuxtApp, useRuntimeConfig, useState } from '#imports'
 import { jsonPointerGet } from '../utils/json'
 import { useAuthToken } from './useAuthToken'
@@ -6,7 +6,7 @@ import { useRefreshToken } from './useRefreshToken'
 
 export function useAuthSession() {
   const config = useRuntimeConfig().public.auth as PublicConfig
-  const authState = useState<User | null>('auth:session', () => null)
+  const authState = useState<Record<string, any> | null>('auth:session', () => null)
 
   const _authToken = useAuthToken()
   const _refreshToken = useRefreshToken()
@@ -84,7 +84,7 @@ export function useAuthSession() {
   }
 
   // 设置会话数据
-  const setSession = (user: User | null) => {
+  const setSession = (user: Record<string, any> | null) => {
     authState.value = user
   }
 
@@ -93,6 +93,7 @@ export function useAuthSession() {
     _authToken.value = null
     _refreshToken.value = null
     setSession(null)
+    nuxtApp.callHook('auth:loggedIn', false)
   }
 
   // 现在可以安全地使用 refreshAccessToken 和 clearSession
@@ -141,7 +142,7 @@ export function useAuthSession() {
   }
 
   // 获取当前用户数据
-  const fetchUser = async (): Promise<User | null> => {
+  const fetchUser = async (): Promise<Record<string, any> | null> => {
     const sessionEndpoint = config.endpoints?.getSession
     if (!sessionEndpoint || !sessionEndpoint.path) {
       return null
@@ -154,13 +155,25 @@ export function useAuthSession() {
         return null
       }
 
-      const userData = await nuxtApp.$auth.fetch<User>(sessionEndpoint.path, {
+      const response = await nuxtApp.$auth.fetch<Record<string, any>>(sessionEndpoint.path, {
         method: sessionEndpoint.method || 'get'
       })
+      const sessionPointer = config.session.responseSessionPointer || '/session'
 
-      if (userData) {
-        setSession(userData)
-        return userData
+      // 从响应中提取令牌
+      const extractedSession = jsonPointerGet(response, sessionPointer)
+      if (typeof extractedSession !== 'object') {
+        console.error(
+          `Auth: string token expected, received instead: ${JSON.stringify(extractedSession)}. `
+          + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        )
+        return null
+      }
+
+      if (extractedSession) {
+        setSession(extractedSession)
+        nuxtApp.callHook('auth:loggedIn', true)
+        return extractedSession
       }
 
       return null

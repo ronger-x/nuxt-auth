@@ -1,7 +1,7 @@
 <script setup>
 import { useAuth } from '#imports'
 
-const { isLoggedIn } = useAuth()
+const isLoggedIn = useAuth().isLoggedIn()
 console.log(isLoggedIn)
 </script>
 

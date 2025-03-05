@@ -42,6 +42,9 @@ export default defineNuxtModule<ModuleOptions>({
       refreshRequestTokenPointer: '/refreshToken',
       cookieName: 'auth.refresh-token',
       maxAge: 604800 // 7 days
+    },
+    session: {
+      responseSessionPointer: '/session'
     }
   },
   setup(options, nuxt) {
