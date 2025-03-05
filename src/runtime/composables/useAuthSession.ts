@@ -97,7 +97,7 @@ export function useAuthSession() {
   }
 
   // 现在可以安全地使用 refreshAccessToken 和 clearSession
-  const getAccessToken = async (): Promise<string | null> => {
+  async function getAccessToken(): Promise<string | null> {
     // 如果没有令牌，无法继续
     if (_authToken.value) {
       if (_authToken.expired) {
@@ -125,7 +125,7 @@ export function useAuthSession() {
     }
   }
 
-  const setToken = (token: string) => {
+  function setToken(token: string) {
     const maxAge = config.accessToken.maxAge || 1800
     _authToken.value = {
       token,
@@ -133,7 +133,7 @@ export function useAuthSession() {
     }
   }
 
-  const setRefreshToken = (token: string) => {
+  function setRefreshToken(token: string) {
     const maxAge = config.refreshToken.maxAge || 1800
     _refreshToken.value = {
       token,
@@ -142,7 +142,7 @@ export function useAuthSession() {
   }
 
   // 获取当前用户数据
-  const fetchUser = async (): Promise<Record<string, any> | null> => {
+  async function fetchUser(): Promise<Record<string, any> | null> {
     const sessionEndpoint = config.endpoints?.getSession
     if (!sessionEndpoint || !sessionEndpoint.path) {
       return null

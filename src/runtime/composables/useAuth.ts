@@ -9,7 +9,7 @@ export function useAuth() {
   const nuxtApp = useNuxtApp()
 
   // Login user
-  const login = async (credentials: Record<string, any>) => {
+  async function login(credentials: Record<string, any>) {
     const signInEndpoint = config.endpoints?.signIn
     if (!signInEndpoint || !signInEndpoint.path) {
       throw new Error('Sign in endpoint not configured')
@@ -56,7 +56,7 @@ export function useAuth() {
   }
 
   // Logout user
-  const logout = async () => {
+  async function logout() {
     try {
       const signOutEndpoint = config.endpoints?.signOut
       if (signOutEndpoint && signOutEndpoint.path) {
@@ -79,7 +79,7 @@ export function useAuth() {
   }
 
   // Register a new user
-  const register = async (userData: Record<string, any>) => {
+  async function register(userData: Record<string, any>) {
     const signUpEndpoint = config.endpoints?.signUp
     if (!signUpEndpoint || !signUpEndpoint.path) {
       throw new Error('Sign up endpoint not configured')
@@ -98,22 +98,22 @@ export function useAuth() {
   }
 
   // Check if user is logged in
-  const isLoggedIn = (): boolean => {
+  function isLoggedIn(): boolean {
     return authSession._loggedInFlag.value
   }
 
   // Get current user
-  const session = (): Record<string, any> | null => {
+  function session(): Record<string, any> | null {
     return authSession.session.value
   }
 
   // fetch user session
-  const fetchUser = async (): Promise<Record<string, any> | null> => {
+  async function fetchUser(): Promise<Record<string, any> | null> {
     return authSession.fetchUser()
   }
 
   // Set universal token
-  const setUniversalToken = (accessToken: string, refreshToken: string) => {
+  function setUniversalToken(accessToken: string, refreshToken: string) {
     authSession.setToken(accessToken)
     authSession.setRefreshToken(refreshToken)
   }
