@@ -34,6 +34,7 @@ export interface PublicConfig {
     maxAge?: number
   }
   refreshToken: {
+    enabled?: boolean
     responseTokenPointer: string
     refreshRequestTokenPointer?: string
     cookieName?: string
@@ -48,28 +49,19 @@ export interface User {
   [key: string]: any
 }
 
-export interface AuthSession {
-  user: User | null
-  loggedIn: boolean
-  lastRefreshedAt?: number
-}
-
 export interface TokenMeta {
   token: string
-  expiresAt: number
+  expires: number
 }
 
-export interface SpringBootAuthResponse {
+export interface AuthTokenResponse {
   accessToken: string
-  refreshToken: string
-  tokenType: string
+  refreshToken?: string
   expiresIn: number
-  user: User
 }
 
 export interface RefreshTokenResponse {
   accessToken: string
-  refreshToken?: string
-  tokenType: string
+  refreshToken: string
   expiresIn: number
 }

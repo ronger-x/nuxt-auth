@@ -1,94 +1,91 @@
 import type { PublicConfig, TokenMeta } from '../types'
-import { useCookie, useRuntimeConfig } from '#imports'
+import { useCookie, useRuntimeConfig, useState } from '#imports'
 
+function memoryStorage() {
+  let store: TokenMeta | null = null
+
+  return {
+    get value() {
+      return store
+    },
+    set value(data: TokenMeta | null) {
+      if (import.meta.client) {
+        store = data
+      }
+    },
+  }
+}
+
+const memory = memoryStorage()
+
+/**
+ * This composable permits the storage of access token in memory
+ * On server-side, it's stored with `useState`. On client-side its stored in a scoped memory.
+ * Given that `useState` is accessible on global context, it's cleared on client-side.
+ */
 export function useRefreshToken() {
+  const state = useState<TokenMeta | null>('auth-refresh-token', () => null)
   const config = useRuntimeConfig().public.auth as PublicConfig
-  const refreshTokenCookieName = config.refreshToken.cookieName || 'auth.refresh-token'
-  const refreshTokenMaxAge = config.refreshToken.maxAge || 60 * 60 * 24 * 30 // Default 30 days
+  const cookieName = config.refreshToken.cookieName || 'auth.refresh-token'
+  const maxAge = config.accessToken.maxAge || 1800
+  // 使用 cookie 存储令牌以防页面刷新
+  const refreshTokenCookie = useCookie<TokenMeta | null>(cookieName, {
+    maxAge,
+    sameSite: 'strict',
+    secure: true
+  })
 
-  // Get refresh token metadata
-  const getRefreshTokenMeta = (): TokenMeta | null => {
-    if (config.storage === 'localStorage' && process.client) {
-      try {
-        const stored = localStorage.getItem(`nuxt-auth:${refreshTokenCookieName}`)
-        if (stored) {
-          return JSON.parse(stored)
+  // 初始化：从 cookie 恢复令牌状态
+  const initTokens = async () => {
+    if (import.meta.client) {
+      // 尝试从 cookie 恢复令牌
+      if (refreshTokenCookie.value) {
+        memory.value = {
+          ...refreshTokenCookie.value
         }
       }
-      catch (e) {
-        console.error('Failed to parse refresh token from localStorage:', e)
-      }
-      return null
     }
-    else {
-      // Default to cookie storage
-      const tokenCookie = useCookie<string | null>(refreshTokenCookieName)
-      const metaCookie = useCookie<number | null>(`${refreshTokenCookieName}-expires`)
+  }
 
-      if (tokenCookie.value) {
-        return {
-          token: tokenCookie.value,
-          expiresAt: metaCookie.value || 0
+  // 初始化令牌
+  if (import.meta.client) {
+    initTokens().finally(() => {
+      // 清除 SSR 状态
+      if (state.value) {
+        memory.value = {
+          ...state.value
         }
+        state.value = null
       }
-      else {
-        return null
-      }
-    }
+    })
   }
 
-  // Get refresh token string
-  const getRefreshToken = (): string | null => {
-    const meta = getRefreshTokenMeta()
-    return meta?.token || null
-  }
-
-  // Set refresh token with expiry
-  const setRefreshToken = (token: string | null): string | null => {
-    const expiresAt = token ? Date.now() + (refreshTokenMaxAge * 1000) : 0
-
-    if (config.storage === 'localStorage' && process.client) {
-      if (token) {
-        const meta: TokenMeta = { token, expiresAt }
-        localStorage.setItem(`nuxt-auth:${refreshTokenCookieName}`, JSON.stringify(meta))
-      }
-      else {
-        localStorage.removeItem(`nuxt-auth:${refreshTokenCookieName}`)
-      }
-    }
-    else {
-      // Default to cookie storage
-      const tokenCookie = useCookie<string | null>(refreshTokenCookieName, {
-        default: () => null,
-        maxAge: refreshTokenMaxAge,
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-      })
-
-      const metaCookie = useCookie<number | null>(`${refreshTokenCookieName}-expires`, {
-        maxAge: refreshTokenMaxAge,
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-      })
-
-      tokenCookie.value = token
-      metaCookie.value = token ? expiresAt : null
-    }
-
-    return token
-  }
-
-  // Clear refresh token
-  const clearRefreshToken = () => {
-    setRefreshToken(null)
+  if (import.meta.client && state.value) {
+    memory.value = { ...state.value }
+    state.value = null
   }
 
   return {
-    getRefreshToken,
-    getRefreshTokenMeta,
-    setRefreshToken,
-    clearRefreshToken
+    get value() {
+      return import.meta.client ? memory.value : state.value
+    },
+
+    set value(data: TokenMeta | null) {
+      if (import.meta.client) {
+        memory.value = data
+      }
+      else {
+        state.value = data
+      }
+    },
+
+    get expired() {
+      if (this.value) {
+        const msRefreshBeforeExpires = 10000
+        const expires = this.value.expires - msRefreshBeforeExpires
+        return expires < Date.now()
+      }
+      return false
+    },
   }
 }

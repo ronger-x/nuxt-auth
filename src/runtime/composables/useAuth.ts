@@ -2,14 +2,10 @@ import type { PublicConfig, User } from '../types'
 import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
 import { jsonPointerGet } from '../utils/json'
 import { useAuthSession } from './useAuthSession'
-import { useAuthToken } from './useAuthToken'
-import { useRefreshToken } from './useRefreshToken'
 
 export function useAuth() {
   const config = useRuntimeConfig().public.auth as PublicConfig
   const authSession = useAuthSession()
-  const { setToken } = useAuthToken()
-  const { setRefreshToken } = useRefreshToken()
   const nuxtApp = useNuxtApp()
 
   // Login user
@@ -34,17 +30,19 @@ export function useAuth() {
         )
         return
       }
-      setToken(extractedToken)
+      authSession.setToken(extractedToken)
 
-      const refreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
-      if (typeof refreshTokenValue !== 'string') {
-        console.error(
-          `Auth: string token expected, received instead: ${JSON.stringify(refreshTokenValue)}. `
-          + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
-        )
-        return
+      if (config.refreshToken.enabled) {
+        const refreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
+        if (typeof refreshTokenValue !== 'string') {
+          console.error(
+            `Auth: string token expected, received instead: ${JSON.stringify(refreshTokenValue)}. `
+            + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
+          )
+          return
+        }
+        authSession.setRefreshToken(refreshTokenValue)
       }
-      setRefreshToken(refreshTokenValue)
 
       // Fetch user session
       await authSession.fetchUser()
@@ -101,12 +99,12 @@ export function useAuth() {
 
   // Check if user is logged in
   const isLoggedIn = (): boolean => {
-    return !!authSession.session.value.loggedIn
+    return !!authSession._loggedInFlag
   }
 
   // Get current user
   const getUser = (): User | null => {
-    return authSession.session.value.user
+    return authSession.session.value
   }
 
   // Refresh user session

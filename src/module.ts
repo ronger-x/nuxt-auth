@@ -30,13 +30,14 @@ export default defineNuxtModule<ModuleOptions>({
       getSession: { path: '/session', method: 'get' }
     },
     accessToken: {
-      responseTokenPointer: '/accessToken',
+      responseTokenPointer: '/token',
       type: 'Bearer',
       cookieName: 'auth.token',
       headerName: 'Authorization',
       maxAge: 1800 // 30 minutes
     },
     refreshToken: {
+      enabled: true,
       responseTokenPointer: '/refreshToken',
       refreshRequestTokenPointer: '/refreshToken',
       cookieName: 'auth.refresh-token',
@@ -52,7 +53,8 @@ export default defineNuxtModule<ModuleOptions>({
     const { resolve } = createResolver(import.meta.url)
 
     // Add nuxt plugins
-    addPlugin(resolve('./runtime/plugins/auth'))
+    addPlugin(resolve('./runtime/plugins/provider'))
+    addPlugin(resolve('./runtime/plugins/flow'))
 
     // Add composables
     addImports([
