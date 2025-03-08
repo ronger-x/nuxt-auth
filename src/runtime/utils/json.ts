@@ -35,41 +35,58 @@ export function jsonPointerSet(
   obj: Record<string, any>,
   pointer: string | string[],
   value: any
-) {
-  const refTokens = Array.isArray(pointer) ? pointer : jsonPointerParse(pointer)
-  let nextTok: string | number = refTokens[0]
+): void {
+  const refTokens: string[] = Array.isArray(pointer) ? pointer : jsonPointerParse(pointer)
 
   if (refTokens.length === 0) {
-    throw new Error('Can not set the root object')
+    throw new Error('Cannot set the root object')
   }
 
-  for (let i = 0; i < refTokens.length - 1; ++i) {
-    let tok: string | number = refTokens[i]
-    if (typeof tok !== 'string' && typeof tok !== 'number') {
-      tok = String(tok)
-    }
+  let current: Record<string, any> | any[] = obj
+  const lastIndex = refTokens.length - 1
+
+  for (let i = 0; i < lastIndex; ++i) {
+    let tok = String(refTokens[i] || '')
+
     if (tok === '__proto__' || tok === 'constructor' || tok === 'prototype') {
       continue
     }
-    if (tok === '-' && Array.isArray(obj)) {
-      tok = obj.length
-    }
-    nextTok = refTokens[i + 1]
 
-    if (!(tok in obj)) {
-      if (nextTok.match(/^(\d+|-)$/)) {
-        obj[tok] = []
+    if (tok === '-' && Array.isArray(current)) {
+      tok = String(current.length)
+    }
+
+    const nextTok = String(refTokens[i + 1] || '')
+    const isNextTokenArrayIndex = /^(?:\d+|-)$/.test(nextTok)
+
+    // 类型守卫
+    if (!(tok in current)) {
+      const newValue = isNextTokenArrayIndex ? [] : {}
+      if (Array.isArray(current)) {
+        current[Number(tok)] = newValue
       }
       else {
-        obj[tok] = {}
+        current[tok] = newValue
       }
     }
-    obj = obj[tok]
+
+    // 类型断言
+    current = (Array.isArray(current) ? current[Number(tok)] : current[tok]) as Record<string, any> | any[]
   }
-  if (nextTok === '-' && Array.isArray(obj)) {
-    nextTok = obj.length
+
+  // 处理最后一个 token
+  let lastTok = String(refTokens[lastIndex] || '')
+  if (lastTok === '-' && Array.isArray(current)) {
+    lastTok = String(current.length)
   }
-  obj[nextTok] = value
+
+  // 根据 current 的类型进行不同的赋值
+  if (Array.isArray(current)) {
+    current[Number(lastTok)] = value
+  }
+  else {
+    current[lastTok] = value
+  }
 }
 
 /**

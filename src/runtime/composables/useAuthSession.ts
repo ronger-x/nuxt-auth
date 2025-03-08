@@ -4,9 +4,19 @@ import { jsonPointerGet } from '../utils/json'
 import { useAuthToken } from './useAuthToken'
 import { useRefreshToken } from './useRefreshToken'
 
+const AUTH_CONSTANTS = {
+  DEFAULT_ACCESS_TOKEN_MAX_AGE: 1800,
+  DEFAULT_REFRESH_TOKEN_MAX_AGE: 1800,
+  DEFAULT_SESSION_POINTER: '/session',
+  STATE_KEY: 'auth:session'
+} as const
+
 export function useAuthSession() {
   const config = useRuntimeConfig().public.auth as PublicConfig
-  const authState = useState<Record<string, any> | null>('auth:session', () => null)
+  const authState = useState<Record<string, any> | null>(
+    AUTH_CONSTANTS.STATE_KEY,
+    () => null
+  )
 
   const _authToken = useAuthToken()
   const _refreshToken = useRefreshToken()
@@ -24,54 +34,55 @@ export function useAuthSession() {
 
   const nuxtApp = useNuxtApp()
 
+  // 添加 Token 验证函数
+  function validateToken(token: unknown, context: string): string | null {
+    if (typeof token !== 'string') {
+      console.error(
+        `Auth: string token expected in ${context}, received: ${JSON.stringify(token)}`
+      )
+      return null
+    }
+    return token
+  }
+
   // 首先定义 refreshAccessToken 函数
   async function refreshAccessToken(): Promise<void> {
     async function handler() {
       const refreshEndpoint = config.endpoints?.refresh
-      if (!refreshEndpoint || !refreshEndpoint.path) {
+      if (!refreshEndpoint?.path) {
         return
       }
-      const response = await nuxtApp.$auth.fetch<Record<string, any>>(refreshEndpoint.path, {
-        method: refreshEndpoint.method || 'post',
-        body: {
-          refreshToken: _refreshToken
+
+      const response = await nuxtApp.$auth.fetch<Record<string, any>>(
+        refreshEndpoint.path,
+        {
+          method: refreshEndpoint.method || 'post',
+          body: { refreshToken: _refreshToken }
         }
-      })
+      )
 
-      // 从响应中提取令牌
-      const extractedToken = jsonPointerGet(response, config.accessToken.responseTokenPointer)
-      if (typeof extractedToken !== 'string') {
-        console.error(
-          `Auth: string token expected, received instead: ${JSON.stringify(extractedToken)}. `
-          + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
-        )
+      const accessToken = validateToken(
+        jsonPointerGet(response, config.accessToken.responseTokenPointer),
+        'access token'
+      )
+      if (!accessToken) {
         return
       }
-
-      const accessTokenMaxAge = config.accessToken.maxAge || 1800
 
       _authToken.value = {
-        token: extractedToken,
-        expires: new Date().getTime() + accessTokenMaxAge * 1000
+        token: accessToken,
+        expires: new Date().getTime() + (config.accessToken.maxAge || 1800) * 1000
       }
 
       if (config.refreshToken.enabled) {
-        const newRefreshTokenValue = jsonPointerGet(response, config.refreshToken.responseTokenPointer)
-        if (typeof newRefreshTokenValue !== 'string') {
-          console.error(
-            `Auth: string token expected, received instead: ${JSON.stringify(newRefreshTokenValue)}. `
-            + `Tried to find token at ${config.refreshToken.responseTokenPointer} in ${JSON.stringify(response)}`
-          )
-          return
-        }
-
-        const refreshTokenMaxAge = config.refreshToken.maxAge || 1800
-
-        // 存储新令牌
-        if (newRefreshTokenValue) {
+        const refreshToken = validateToken(
+          jsonPointerGet(response, config.refreshToken.responseTokenPointer),
+          'refresh token'
+        )
+        if (refreshToken) {
           _refreshToken.value = {
-            token: newRefreshTokenValue,
-            expires: new Date().getTime() + refreshTokenMaxAge * 1000
+            token: refreshToken,
+            expires: new Date().getTime() + (config.refreshToken.maxAge || 1800) * 1000
           }
         }
       }
@@ -113,9 +124,7 @@ export function useAuthSession() {
           return _authToken.value.token
         }
         catch (error) {
-          console.error('Failed to refresh token:', error)
-          clearSession()
-          return null
+          handleAuthError(error, 'Failed to refresh token')
         }
       }
       return _authToken.value.token
@@ -141,33 +150,39 @@ export function useAuthSession() {
     }
   }
 
+  // 添加一个统一的错误处理函数
+  function handleAuthError(error: unknown, context: string) {
+    console.error(`Auth error (${context}):`, error)
+    clearSession()
+    return null
+  }
+
   // 获取当前用户数据
   async function fetchUser(): Promise<Record<string, any> | null> {
     const sessionEndpoint = config.endpoints?.getSession
-    if (!sessionEndpoint || !sessionEndpoint.path) {
+    if (!sessionEndpoint?.path) {
       return null
     }
 
     try {
       const token = await getAccessToken()
       if (!token) {
-        clearSession()
         return null
       }
 
-      const response = await nuxtApp.$auth.fetch<Record<string, any>>(sessionEndpoint.path, {
-        method: sessionEndpoint.method || 'get'
-      })
-      const sessionPointer = config.session.responseSessionPointer || '/session'
+      const response = await nuxtApp.$auth.fetch<Record<string, any>>(
+        sessionEndpoint.path,
+        { method: sessionEndpoint.method || 'get' }
+      )
 
-      // 从响应中提取令牌
+      const sessionPointer = config.session.responseSessionPointer || '/session'
       const extractedSession = jsonPointerGet(response, sessionPointer)
+
       if (typeof extractedSession !== 'object') {
-        console.error(
-          `Auth: string token expected, received instead: ${JSON.stringify(extractedSession)}. `
-          + `Tried to find token at ${config.accessToken.responseTokenPointer} in ${JSON.stringify(response)}`
+        return handleAuthError(
+          new Error('Invalid session format'),
+          `Invalid session data at ${sessionPointer}`
         )
-        return null
       }
 
       if (extractedSession) {
@@ -179,9 +194,7 @@ export function useAuthSession() {
       return null
     }
     catch (error) {
-      console.error('Error fetching user:', error)
-      clearSession()
-      return null
+      return handleAuthError(error, 'fetchUser')
     }
   }
 

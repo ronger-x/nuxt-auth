@@ -1,7 +1,9 @@
 import type { PublicConfig, TokenMeta } from '../types'
 import { useCookie, useRuntimeConfig, useState } from '#imports'
 
-function memoryStorage() {
+function memoryStorage(): {
+  value: TokenMeta | null
+} {
   let store: TokenMeta | null = null
 
   return {
@@ -24,46 +26,34 @@ const memory = memoryStorage()
  * Given that `useState` is accessible on global context, it's cleared on client-side.
  */
 export function useRefreshToken() {
-  const state = useState<TokenMeta | null>('auth-refresh-token', () => null)
+  const state = useState<TokenMeta | null>('auth:refresh-token', () => null)
   const config = useRuntimeConfig().public.auth as PublicConfig
   const cookieName = config.refreshToken.cookieName || 'auth.refresh-token'
   const maxAge = config.accessToken.maxAge || 1800
-  // 使用 cookie 存储令牌以防页面刷新
   const refreshTokenCookie = useCookie<TokenMeta | null>(cookieName, {
     maxAge,
     sameSite: 'strict',
     secure: true
   })
 
-  // 初始化：从 cookie 恢复令牌状态
-  const initTokens = async () => {
-    if (import.meta.client) {
-      // 尝试从 cookie 恢复令牌
+  if (import.meta.client) {
+    try {
       if (refreshTokenCookie.value) {
-        memory.value = {
-          ...refreshTokenCookie.value
-        }
+        memory.value = { ...refreshTokenCookie.value }
       }
+    }
+    catch (error) {
+      console.error('Failed to initialize from cookie:', error)
+      // 可以选择清除无效的 cookie
+      refreshTokenCookie.value = null
+    }
+    if (state.value) {
+      memory.value = { ...state.value }
+      state.value = null
     }
   }
 
-  // 初始化令牌
-  if (import.meta.client) {
-    initTokens().finally(() => {
-      // 清除 SSR 状态
-      if (state.value) {
-        memory.value = {
-          ...state.value
-        }
-        state.value = null
-      }
-    })
-  }
-
-  if (import.meta.client && state.value) {
-    memory.value = { ...state.value }
-    state.value = null
-  }
+  const MS_REFRESH_BEFORE_EXPIRES = 10000 // 提取常量
 
   return {
     get value() {
@@ -73,6 +63,8 @@ export function useRefreshToken() {
     set value(data: TokenMeta | null) {
       if (import.meta.client) {
         memory.value = data
+        // 同步到 cookie
+        refreshTokenCookie.value = data
       }
       else {
         state.value = data
@@ -80,12 +72,11 @@ export function useRefreshToken() {
     },
 
     get expired() {
-      if (this.value) {
-        const msRefreshBeforeExpires = 10000
-        const expires = this.value.expires - msRefreshBeforeExpires
-        return expires < Date.now()
+      const token = this.value
+      if (!token) {
+        return false
       }
-      return false
+      return (token.expires - MS_REFRESH_BEFORE_EXPIRES) < Date.now()
     },
   }
 }
