@@ -2,7 +2,6 @@ import type { RouterMethod } from 'h3'
 
 export interface PublicConfig {
   backendEnabled?: boolean
-  authBaseUrl?: string
   baseUrl: string
   enableGlobalAuthMiddleware?: boolean
   loggedInFlagName?: string

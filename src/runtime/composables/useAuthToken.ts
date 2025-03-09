@@ -28,7 +28,7 @@ const memory = memoryStorage()
 export function useAuthToken() {
   const state = useState<TokenMeta | null>('auth:token', () => null)
   const config = useRuntimeConfig().public.auth as PublicConfig
-  const cookieName = config.refreshToken.cookieName || 'auth.token'
+  const cookieName = config.accessToken.cookieName || 'auth.token'
   const maxAge = config.accessToken.maxAge || 1800
 
   // 使用 cookie 存储令牌以防页面刷新
@@ -42,7 +42,11 @@ export function useAuthToken() {
   if (import.meta.client) {
     try {
       if (accessTokenCookie.value) {
+        console.log('Initializing token from cookie:', accessTokenCookie.value)
         memory.value = { ...accessTokenCookie.value }
+      }
+      else {
+        console.log('No token found in cookie')
       }
     }
     catch (error) {
@@ -54,11 +58,6 @@ export function useAuthToken() {
       memory.value = { ...state.value }
       state.value = null
     }
-  }
-
-  if (import.meta.client && state.value) {
-    memory.value = { ...state.value }
-    state.value = null
   }
 
   const MS_REFRESH_BEFORE_EXPIRES = 10000 // 提取常量

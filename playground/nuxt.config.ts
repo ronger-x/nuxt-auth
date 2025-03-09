@@ -14,7 +14,8 @@ export default defineNuxtConfig({
   },
 
   auth: {
-    baseUrl: '/',
+    baseUrl: '/api',
+    enableGlobalAuthMiddleware: false,
     accessToken: {
       responseTokenPointer: '/data/token',
       type: 'Bearer',
@@ -35,10 +36,13 @@ export default defineNuxtConfig({
       callback: '/auth/callback',
     },
     endpoints: {
-      signIn: { path: '/login', method: 'post' },
-      signOut: { path: '/logout', method: 'post' },
-      getSession: { path: '/session', method: 'get' },
-      refresh: { path: '/refresh-token', method: 'post' },
+      signIn: { path: '/auth/login', method: 'post' },
+      signOut: { path: '/auth/logout', method: 'post' },
+      getSession: { path: '/auth/session', method: 'get' },
+      refresh: { path: '/auth/refresh-token', method: 'post' },
+    },
+    session: {
+      responseSessionPointer: '/data/session'
     },
   },
 

@@ -1,5 +1,5 @@
 import type { PublicConfig } from '../types'
-import { navigateTo, useNuxtApp, useRuntimeConfig } from '#imports'
+import { navigateTo, useNuxtApp, useRoute, useRuntimeConfig } from '#imports'
 import { jsonPointerGet } from '../utils/json'
 import { useAuthSession } from './useAuthSession'
 
@@ -17,6 +17,7 @@ export function useAuth() {
 
     try {
       const response = await $fetch<Record<string, any>>(signInEndpoint.path, {
+        baseURL: config.baseUrl,
         method: signInEndpoint.method || 'post',
         body: credentials
       })
@@ -45,7 +46,7 @@ export function useAuth() {
       }
 
       // Fetch user session
-      await authSession.fetchUser()
+      await _onLogin()
 
       return response
     }
@@ -61,6 +62,7 @@ export function useAuth() {
       const signOutEndpoint = config.endpoints?.signOut
       if (signOutEndpoint && signOutEndpoint.path) {
         await nuxtApp.$auth.fetch(signOutEndpoint.path, {
+          baseURL: config.baseUrl,
           method: signOutEndpoint.method || 'post'
         }).catch(() => {
           // Silent fail on logout endpoint
@@ -69,12 +71,39 @@ export function useAuth() {
     }
     finally {
       // Always clear local session, even if server logout fails
-      authSession.clearSession()
+      await _onLogout()
+    }
+  }
 
-      // Redirect to logout page
-      if (config.redirect.logout) {
-        navigateTo(config.redirect.logout)
-      }
+  /**
+   * Logs the user in by fetching the user data, checking if the user is logged in,
+   * and redirecting to the specified page after calling the 'auth:loggedIn' hook.
+   *
+   * @return {Promise<void>} A promise that resolves when the login process is complete.
+   */
+  async function _onLogin(): Promise<void> {
+    await fetchUser()
+    if (useAuthSession().session.value === null) {
+      return
+    }
+    const returnToPath = useRoute().query.redirect?.toString()
+    const redirectTo = returnToPath ?? config.redirect.home
+    await nuxtApp.callHook('auth:loggedIn', true)
+    await navigateTo(redirectTo)
+  }
+
+  /**
+   * Logs the user out by calling the 'auth:loggedIn' hook with the value 'false',
+   * setting the token value to null, and navigating to the logout page if the code
+   * is running on the client side.
+   *
+   * @return {Promise<void>} A promise that resolves when the logout process is complete.
+   */
+  async function _onLogout(): Promise<void> {
+    await nuxtApp.callHook('auth:loggedIn', false)
+    authSession.clearSession()
+    if (import.meta.client) {
+      await navigateTo(config.redirect.logout, { external: true })
     }
   }
 
@@ -87,6 +116,7 @@ export function useAuth() {
 
     try {
       return await $fetch(signUpEndpoint.path, {
+        baseURL: config.baseUrl,
         method: signUpEndpoint.method || 'post',
         body: userData
       })

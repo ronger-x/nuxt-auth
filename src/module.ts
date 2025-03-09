@@ -13,7 +13,7 @@ export default defineNuxtModule<ModuleOptions>({
     }
   },
   defaults: {
-    baseUrl: '/api/auth',
+    baseUrl: '/api',
     enableGlobalAuthMiddleware: true,
     loggedInFlagName: 'isAuthenticated',
     storage: 'cookie',
@@ -81,6 +81,12 @@ export default defineNuxtModule<ModuleOptions>({
     addRouteMiddleware({
       name: 'guest',
       path: resolve('./runtime/middleware/guest'),
+    })
+
+    addRouteMiddleware({
+      name: '_auth-common',
+      path: resolve('./runtime/middleware/common'),
+      global: true,
     })
   }
 })

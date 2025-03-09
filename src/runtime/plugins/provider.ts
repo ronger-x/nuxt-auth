@@ -14,7 +14,7 @@ export default defineNuxtPlugin({
      * A $fetch instance with auto authorization handler
      */
     const fetch = $fetch.create({
-      baseURL: config.authBaseUrl,
+      baseURL: config.baseUrl,
 
       async onRequest({ options }) {
         const accessToken = await useAuthSession().getAccessToken()

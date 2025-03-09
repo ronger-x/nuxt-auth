@@ -56,6 +56,7 @@ export function useAuthSession() {
       const response = await nuxtApp.$auth.fetch<Record<string, any>>(
         refreshEndpoint.path,
         {
+          baseURL: config.baseUrl,
           method: refreshEndpoint.method || 'post',
           body: { refreshToken: _refreshToken }
         }
@@ -172,7 +173,10 @@ export function useAuthSession() {
 
       const response = await nuxtApp.$auth.fetch<Record<string, any>>(
         sessionEndpoint.path,
-        { method: sessionEndpoint.method || 'get' }
+        {
+          baseURL: config.baseUrl,
+          method: sessionEndpoint.method || 'get'
+        }
       )
 
       const sessionPointer = config.session.responseSessionPointer || '/session'
@@ -187,7 +191,6 @@ export function useAuthSession() {
 
       if (extractedSession) {
         setSession(extractedSession)
-        nuxtApp.callHook('auth:loggedIn', true)
         return extractedSession
       }
 

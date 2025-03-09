@@ -1,4 +1,4 @@
-<!-- pages/login.vue -->
+<!-- pages/register.vue -->
 <script setup>
 import { definePageMeta, useAuth, useRouter } from '#imports'
 import AuthForm from '~/components/AuthForm.vue'
@@ -8,19 +8,16 @@ definePageMeta({
 })
 
 const router = useRouter()
-const { login } = useAuth()
+const { register } = useAuth()
 
 async function handleSubmit(form) {
-  const { success, error } = await login({
-    email: form.email,
-    password: form.password
-  })
+  const { success, error } = await register(form.name, form.email, form.password)
 
   if (success) {
-    router.push('/auth/profile')
+    router.push('/profile')
   }
   else {
-    throw new Error(error?.data?.message || '登录失败，请重试')
+    throw new Error(error?.data?.message || '注册失败，请重试')
   }
 }
 </script>
@@ -28,14 +25,15 @@ async function handleSubmit(form) {
 <template>
   <div>
     <AuthForm
-      title="登录"
-      button-text="登录"
+      title="创建账户"
+      button-text="注册"
+      :show-name="true"
       :submit-handler="handleSubmit"
     />
     <p class="text-center mt-4">
-      还没有账号？
-      <NuxtLink to="/auth/register" class="text-blue-600 hover:underline">
-        注册
+      已有账号？
+      <NuxtLink to="/login" class="text-blue-600 hover:underline">
+        登录
       </NuxtLink>
     </p>
   </div>
